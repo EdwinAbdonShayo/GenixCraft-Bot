@@ -6,6 +6,7 @@ sio = socketio.Client()
 @sio.event
 def connect():
     print("✅ Connected to control system.")
+    sio.emit("status_update", {"message": "GenixCraft is connected"})
 
 @sio.event
 def disconnect():
@@ -18,5 +19,8 @@ def on_robot_command(data):
     # Here you will parse and handle the command (next step)
 
 # Connect to the control system server
-sio.connect("http://localhost:5000")  # Update with server IP if needed
+try:
+    sio.connect("http://localhost:5000")
+except socketio.exceptions.ConnectionError as e:
+    print(f"🚫 Connection failed: {e}")
 sio.wait()
