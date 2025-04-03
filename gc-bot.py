@@ -20,7 +20,7 @@ def on_robot_command(data):
 
 # Connect to the control system server
 try:
-    sio.connect("http://192.168.8.6:5000")
+    sio.connect("http://192.168.97.74:5000")
 except socketio.exceptions.ConnectionError as e:
     print(f"🚫 Connection failed: {e}")
 sio.wait()
