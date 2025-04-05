@@ -510,3 +510,42 @@ Camera Not Detected: If the camera isn’t being detected, ensure that all neces
 SDK Installation: Follow the instructions provided by Orbbec carefully to ensure the SDK is installed correctly. You may need to troubleshoot compilation or installation errors depending on your Raspberry Pi model.
 
 Let me know if you encounter any issues or need further help with setting up your Astra Pro Plus camera!
+
+
+
+
+
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+describing a multi-stage smart vision pipeline, where YOLO acts as the object detector (finding the object), then:
+
+YOLO detects the object in the frame.
+
+Get coordinates from the depth camera at the object's center.
+
+Move the system/camera closer (maybe robotically) to the object using that data.
+
+Once close enough, activate the second camera to scan a QR code using pyzbar.
+
+Process the QR content → continue with task (maybe sorting, classification, etc.).
+
+This is a very solid architecture, especially if you're working with a robot arm or autonomous bot.
+
+
+
+[ YOLOv5/YOLOv8 ]
+        ↓
+[ Get bounding box center (x,y) ]
+        ↓
+[ Fetch depth at (x,y) using Astra ]
+        ↓
+[ Use logic to move closer ]
+        ↓
+[ When close → activate 2nd camera ]
+        ↓
+[ Use pyzbar to decode QR ]
+        ↓
+[ Use QR info to trigger next action ]
+
