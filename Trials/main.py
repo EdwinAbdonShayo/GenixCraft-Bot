@@ -1,12 +1,11 @@
-import cv2
-from ultralytics import YOLO
 from astra_test import AstraContext, DepthStream
-from Arm_Lib import Arm_Device
-
 from depth_utils import image_to_world
 from ik_controller import solve_ik_and_move
+from qr_scanner import scan_qr_from_camera
+from ultralytics import YOLO
+from Arm_Lib import Arm_Device
+import cv2
 
-# Load models and devices
 model = YOLO("yolov8n.pt")
 cam = cv2.VideoCapture(0)
 arm = Arm_Device()
@@ -15,7 +14,6 @@ context = AstraContext()
 depth_stream = DepthStream(context.get_devices()[0])
 depth_stream.start()
 
-# Focal length and center (replace with calibrated values if available)
 fx, fy = 525.0, 525.0
 cx, cy = 319.5, 239.5
 
@@ -39,8 +37,19 @@ try:
 
             if depth > 0:
                 x, y, z = image_to_world(cx_img, cy_img, depth, fx, fy, cx, cy)
-                solve_ik_and_move(x, y, z, arm)
-            break  # One object at a time
+
+                if z > 0.15:
+                    print("Moving closer...")
+                    solve_ik_and_move(x, y, z - 0.05, arm)
+                else:
+                    print("Close enough. Scanning QR...")
+                    qr = scan_qr_from_camera()
+                    if qr:
+                        print(f"QR: {qr}")
+                        # Call appropriate action
+                    else:
+                        print("QR not found.")
+            break
 
         cv2.imshow("YOLO Detection", frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
