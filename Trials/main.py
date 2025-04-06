@@ -1,7 +1,7 @@
 import cv2
 from ultralytics import YOLO
-from Tests.astra_test import AstraContext, DepthStream
-# from Arm_Lib import Arm_Device
+from astra_test import AstraContext, DepthStream
+from Arm_Lib import Arm_Device
 
 from depth_utils import image_to_world
 from ik_controller import solve_ik_and_move
@@ -9,7 +9,7 @@ from ik_controller import solve_ik_and_move
 # Load models and devices
 model = YOLO("yolov8n.pt")
 cam = cv2.VideoCapture(0)
-# arm = Arm_Device()
+arm = Arm_Device()
 
 context = AstraContext()
 depth_stream = DepthStream(context.get_devices()[0])
