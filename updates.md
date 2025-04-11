@@ -147,5 +147,3 @@ Overcoming this will either require:
 - Accessing the original driver files from Orbbec or community backups, or
 - Replacing the depth sensor with one that provides better open-source or first-party support.
 
-
-This knowledge is critical for anyone pursuing work in **intelligent robotics** or **edge AI**.
