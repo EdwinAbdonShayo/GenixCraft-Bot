@@ -1,4 +1,4 @@
-# GenixCraft Bot - Stage 2
+# GenixCraft Bot
 # Target object detection and matching
 import cv2
 from pyzbar.pyzbar import decode
@@ -56,15 +56,14 @@ def main():
                         print(f"[MATCH FOUND] Target '{product_info['product_name']}' detected at {center}")
                         print(f"[Product Info] {product_info}")
                         
+                        world_coords = pixel_to_world(center[0], center[1])
                         joint_angles = calculate_ik(*world_coords)
                         print(f"[IK Angles] {joint_angles}")
                         target_found = True
 
-                        # For now, pause or just highlight
+                        # Visual highlight
                         cv2.circle(processed_frame, center, 8, (0, 0, 255), -1)
 
-                        world_coords = pixel_to_world(center[0], center[1])
-                        joint_angles = calculate_ik(*world_coords)
                         move_and_pick(joint_angles)
                         place_object()
                         reset_arm()

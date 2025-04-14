@@ -43,9 +43,11 @@ def calculate_ik(x, y, z):
     Calculate the joint angles to reach a point (x, y, z).
     Returns joint angles in degrees (for servos).
     """
-    target_frame = np.eye(4)
-    target_frame[:3, 3] = [x, y, z]
+    target_position = [x, y, z]
 
-    ik_result = dofbot_chain.inverse_kinematics(target_frame)
+    ik_result = dofbot_chain.inverse_kinematics(
+        target_position=target_position
+    )
+
     joint_angles_deg = np.degrees(ik_result[1:6])  # Skip OriginLink
     return joint_angles_deg.tolist()
