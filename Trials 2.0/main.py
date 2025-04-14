@@ -5,6 +5,7 @@ from pyzbar.pyzbar import decode
 from calibration import pixel_to_world
 from ik_controller import calculate_ik
 from arm_control import move_and_pick, place_object, reset_arm
+import json
 
 
 def initialize_camera(camera_id=0):
@@ -49,24 +50,46 @@ def main():
 
             target_found = False
             for data, center in qr_data_list:
-                if data == target_object_id:
-                    print(f"[MATCH FOUND] Target '{data}' detected at {center}")
-                    world_coords = pixel_to_world(center[0], center[1])
-                    print(f"[World Coordinates] {world_coords}")
+                try:
+                    product_info = json.loads(data)
+                    if product_info.get("product_id") == target_object_id:
+                        print(f"[MATCH FOUND] Target '{product_info['product_name']}' detected at {center}")
+                        print(f"[Product Info] {product_info}")
+                        
+                        joint_angles = calculate_ik(*world_coords)
+                        print(f"[IK Angles] {joint_angles}")
+                        target_found = True
 
-                    joint_angles = calculate_ik(*world_coords)
-                    print(f"[IK Angles] {joint_angles}")
-                    target_found = True
+                        # For now, pause or just highlight
+                        cv2.circle(processed_frame, center, 8, (0, 0, 255), -1)
 
-                    # For now, pause or just highlight
-                    cv2.circle(processed_frame, center, 8, (0, 0, 255), -1)
+                        world_coords = pixel_to_world(center[0], center[1])
+                        joint_angles = calculate_ik(*world_coords)
+                        move_and_pick(joint_angles)
+                        place_object()
+                        reset_arm()
+                        target_found = True
+                        break
+                except json.JSONDecodeError:
+                    print(f"[Error] Failed to parse QR data: {data}")
+                # if data == target_object_id:
+                #     print(f"[MATCH FOUND] Target '{data}' detected at {center}")
+                #     world_coords = pixel_to_world(center[0], center[1])
+                #     print(f"[World Coordinates] {world_coords}")
 
-                    # Move & pick object
-                    move_and_pick(joint_angles)
-                    place_object()
-                    reset_arm()
+                #     joint_angles = calculate_ik(*world_coords)
+                #     print(f"[IK Angles] {joint_angles}")
+                #     target_found = True
 
-                    break  # End after successful operation
+                #     # For now, pause or just highlight
+                #     cv2.circle(processed_frame, center, 8, (0, 0, 255), -1)
+
+                #     # Move & pick object
+                #     move_and_pick(joint_angles)
+                #     place_object()
+                #     reset_arm()
+
+                #     break  # End after successful operation
 
             if not target_found:
                 print("[Status] Target not found in this frame.")
