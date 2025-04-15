@@ -71,24 +71,6 @@ def main():
                         break
                 except json.JSONDecodeError:
                     print(f"[Error] Failed to parse QR data: {data}")
-                # if data == target_object_id:
-                #     print(f"[MATCH FOUND] Target '{data}' detected at {center}")
-                #     world_coords = pixel_to_world(center[0], center[1])
-                #     print(f"[World Coordinates] {world_coords}")
-
-                #     joint_angles = calculate_ik(*world_coords)
-                #     print(f"[IK Angles] {joint_angles}")
-                #     target_found = True
-
-                #     # For now, pause or just highlight
-                #     cv2.circle(processed_frame, center, 8, (0, 0, 255), -1)
-
-                #     # Move & pick object
-                #     move_and_pick(joint_angles)
-                #     place_object()
-                #     reset_arm()
-
-                #     break  # End after successful operation
 
             if not target_found:
                 print("[Status] Target not found in this frame.")
