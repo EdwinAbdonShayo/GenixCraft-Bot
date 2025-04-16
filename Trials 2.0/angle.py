@@ -14,16 +14,16 @@ def move_single_servo():
                 break
 
             servo_num = int(servo)
-            if not 1 <= servo_num <= 5:
+            if not 1 <= servo_num <= 6:
                 print("[Error] Servo number must be between 1 and 5.")
                 continue
 
             angle = int(input(f"Enter angle for Servo {servo_num} (0–180): ").strip())
-            if not 0 <= angle <= 180:
+            if not -50 <= angle <= 180:
                 print("[Error] Angle must be between 0 and 180.")
                 continue
 
-            duration = 500  # Move time in milliseconds
+            duration = 1000  # Move time in milliseconds
             Arm.Arm_serial_servo_write(servo_num, angle, duration)
             time.sleep(duration / 1000)
             print(f"[Moved] Servo {servo_num} set to {angle}°")
