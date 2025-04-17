@@ -2,6 +2,16 @@ from ikpy.chain import Chain
 from ikpy.link import OriginLink, URDFLink
 import numpy as np
 
+import json
+from scipy.spatial import distance
+
+# Load the grid from file
+try:
+    with open("pose_grid.json", "r") as f:
+        POSE_GRID = json.load(f)
+except FileNotFoundError:
+    POSE_GRID = {}
+
 # DOFBOT kinematic chain using ikpy 4.x style (working structure)
 dofbot_chain = Chain(name='dofbot', links=[
     OriginLink(),  # Always required as the root
@@ -48,11 +58,22 @@ def calculate_ik(x, y, z, current_angles_deg=None):
     target_position = [x, y, z + Z_OFFSET]
 
     if current_angles_deg:
-        # Convert from servo space (0-180) to IKPY space (-90 to +90)
         initial_guess = np.radians(np.array(current_angles_deg) - 90)
-        initial_guess = np.insert(initial_guess, 0, 0.0)  # add base fixed joint
+        initial_guess = np.insert(initial_guess, 0, 0.0)
     else:
-        initial_guess = None  # let IKPY guess from scratch
+        # If no angles passed in, find nearest pose in the grid
+        if POSE_GRID:
+            def closest_pose(x, y):
+                target = np.array([x, y])
+                keys = [eval(k) for k in POSE_GRID.keys()]
+                nearest_key = min(keys, key=lambda k: distance.euclidean(k, target))
+                return POSE_GRID[str(nearest_key)]
+            guess_angles = closest_pose(x, y)
+            initial_guess = np.radians(np.array(guess_angles) - 90)
+            initial_guess = np.insert(initial_guess, 0, 0.0)
+        else:
+            initial_guess = None
+
 
     ik_result = dofbot_chain.inverse_kinematics(
         target_position=target_position,
