@@ -17,7 +17,7 @@ def move_servos(angles, duration=1000):
         Arm.Arm_serial_servo_write(i, angle, duration)
         time.sleep(0.01)
     time.sleep(duration / 1000)
-    print(f"[Pose] Current: {pose}")
+    print(f"[Pose] Current: {angle}")
 
 
 
@@ -50,7 +50,7 @@ def place_object():
 def reset_arm():
     """Return to rest position"""
     print("[Action] Returning to rest position.")
-    rest_position = [90, 130, 0, 0, 90]
+    rest_position = [90, 90, 0, 10, 90]
     move_servos(rest_position, duration=1000)
 
 
@@ -81,6 +81,7 @@ def step_move(direction, delta=2):
         pose[3] -= 10
 
     pose = sanitize_pose(pose)
+    print(f"[Pose] Current: {pose}")
     move_servos(pose, duration=600)
 
 
