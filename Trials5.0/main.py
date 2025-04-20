@@ -30,6 +30,10 @@ def main():
     target_id = input("Enter target object ID (e.g. 'Item123'): ").strip()
     cap = initialize_camera()
 
+    last_known_pose = None
+    missed_frames = 0
+    tolerance = 30  # Adjusted tolerance for testing
+
     try:
         while True:
             ret, frame = cap.read()
@@ -43,35 +47,56 @@ def main():
 
             if qr_center:
                 print(f"[Target] Found {product_info['product_name']} at {qr_center}")
+                print(f"[Frame Center] {frame_center}, [QR Center] {qr_center}")
+
                 dx = qr_center[0] - frame_center[0]
                 dy = qr_center[1] - frame_center[1]
 
-                tolerance = 20
                 if abs(dx) < tolerance and abs(dy) < tolerance:
                     print("[Status] QR centered. Proceeding to grab.")
                     step_move("forward")
                     grip(True)
                     break
                 else:
-                    direction = []
-                    if dx < -tolerance:
-                        direction.append("left")
-                    elif dx > tolerance:
-                        direction.append("right")
-                    if dy < -tolerance:
-                        direction.append("up")
-                    elif dy > tolerance:
-                        direction.append("down")
+                    last_known_pose = read_current_pose()
+                    missed_frames = 0
 
-                    for d in direction:
-                        step_move(d)
+                    # Proportional delta for X
+                    if abs(dx) > tolerance:
+                        delta_x = min(max(abs(dx) // 15, 1), 6)
+                        if dx < 0:
+                            step_move("left", delta=delta_x)
+                        else:
+                            step_move("right", delta=delta_x)
+
+                    # Proportional delta for Y
+                    if abs(dy) > tolerance:
+                        delta_y = min(max(abs(dy) // 15, 1), 6)
+                        if dy < 0:
+                            step_move("up", delta=delta_y)
+                        else:
+                            step_move("down", delta=delta_y)
+
             else:
                 print("[Status] Target not detected.")
+                missed_frames += 1
 
-            # Display
+                if missed_frames >= 5 and last_known_pose:
+                    print("[Recovery] QR lost. Returning to last known pose.")
+                    move_servos(last_known_pose, duration=800)
+                    missed_frames = 0
+
+            # Display with center & tolerance box
             cv2.circle(frame, frame_center, 5, (255, 0, 0), -1)
             if qr_center:
                 cv2.circle(frame, qr_center, 5, (0, 255, 0), -1)
+
+            # Draw tolerance box
+            cv2.line(frame, (frame_center[0] - tolerance, frame_center[1]),
+                     (frame_center[0] + tolerance, frame_center[1]), (255, 255, 255), 1)
+            cv2.line(frame, (frame_center[0], frame_center[1] - tolerance),
+                     (frame_center[0], frame_center[1] + tolerance), (255, 255, 255), 1)
+
             cv2.imshow("Visual Servoing", frame)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
