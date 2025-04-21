@@ -1,7 +1,6 @@
 # arm_control.py
 
 from pose import read_current_pose
-
 import time
 from Arm_Lib import Arm_Device
 
@@ -17,7 +16,7 @@ def move_servos(angles, duration=1000):
         Arm.Arm_serial_servo_write(i, angle, duration)
         time.sleep(0.01)
     time.sleep(duration / 1000)
-    print(f"[Pose] Current: {angle}")
+    print(f"[Pose] Current: {angles}")  # ✅ FIXED: print the whole pose list
 
 
 
@@ -54,7 +53,7 @@ def reset_arm():
     move_servos(rest_position, duration=1000)
 
 
-# #####################################################3
+# #####################################################
 
 
 def step_move(direction, delta=2):

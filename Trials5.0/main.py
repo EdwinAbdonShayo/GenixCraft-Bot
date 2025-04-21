@@ -47,10 +47,16 @@ def main():
     target_id = input("Enter target object ID (e.g. 'Item123'): ").strip()
     cap = initialize_camera()
 
+<<<<<<< HEAD
     # NEW: For backup recovery
     last_known_pose = None
     missed_frames = 0
     tolerance = 20
+=======
+    last_known_pose = None
+    missed_frames = 0
+    tolerance = 30  # Adjusted tolerance for testing
+>>>>>>> refs/remotes/origin/main
 
     try:
         while True:
@@ -76,6 +82,7 @@ def main():
                     grip(True)
                     break
                 else:
+<<<<<<< HEAD
                     # Update the last known good pose
                     last_known_pose = read_current_pose()
                     missed_frames = 0  # Reset QR-miss counter
@@ -91,22 +98,54 @@ def main():
                             step_move("up")
                         elif dy > tolerance:
                             step_move("down")
+=======
+                    last_known_pose = read_current_pose()
+                    missed_frames = 0
+
+                    # Proportional delta for X
+                    if abs(dx) > tolerance:
+                        delta_x = min(max(abs(dx) // 15, 1), 6)
+                        if dx < 0:
+                            step_move("left", delta=delta_x)
+                        else:
+                            step_move("right", delta=delta_x)
+
+                    # Proportional delta for Y
+                    if abs(dy) > tolerance:
+                        delta_y = min(max(abs(dy) // 15, 1), 6)
+                        if dy < 0:
+                            step_move("up", delta=delta_y)
+                        else:
+                            step_move("down", delta=delta_y)
+
+>>>>>>> refs/remotes/origin/main
             else:
                 print("[Status] Target not detected.")
                 missed_frames += 1
 
+<<<<<<< HEAD
                 # If QR is lost for too long, go back to last known pose
+=======
+>>>>>>> refs/remotes/origin/main
                 if missed_frames >= 5 and last_known_pose:
                     print("[Recovery] QR lost. Returning to last known pose.")
                     move_servos(last_known_pose, duration=800)
                     missed_frames = 0
 
+<<<<<<< HEAD
             # Visual display
+=======
+            # Display with center & tolerance box
+>>>>>>> refs/remotes/origin/main
             cv2.circle(frame, frame_center, 5, (255, 0, 0), -1)
             if qr_center:
                 cv2.circle(frame, qr_center, 5, (0, 255, 0), -1)
 
+<<<<<<< HEAD
             # NEW: Boundary box visualization (tolerance box)
+=======
+            # Draw tolerance box
+>>>>>>> refs/remotes/origin/main
             cv2.line(frame, (frame_center[0] - tolerance, frame_center[1]),
                      (frame_center[0] + tolerance, frame_center[1]), (255, 255, 255), 1)
             cv2.line(frame, (frame_center[0], frame_center[1] - tolerance),
