@@ -12,7 +12,23 @@ def initialize_camera(camera_id=0):
     return cap
 
 def detect_target(frame, target_id):
-    decoded_objects = decode(frame)
+    # Convert to grayscale
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    # Apply Gaussian Blur to reduce noise (optional)
+    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+
+    # Use adaptive thresholding to enhance contrast
+    thresh = cv2.adaptiveThreshold(
+        blurred, 255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        11, 2
+    )
+
+    # Decode QR codes from thresholded image
+    decoded_objects = decode(thresh)
+
     for obj in decoded_objects:
         data = obj.data.decode('utf-8')
         try:
@@ -23,12 +39,18 @@ def detect_target(frame, target_id):
                 return center, product_info
         except json.JSONDecodeError:
             continue
+
     return None, None
 
 def main():
     print("[GenixCraft Bot] Visual Servoing QR Pickup")
     target_id = input("Enter target object ID (e.g. 'Item123'): ").strip()
     cap = initialize_camera()
+
+    # NEW: For backup recovery
+    last_known_pose = None
+    missed_frames = 0
+    tolerance = 20
 
     try:
         while True:
@@ -43,35 +65,53 @@ def main():
 
             if qr_center:
                 print(f"[Target] Found {product_info['product_name']} at {qr_center}")
+                print(f"[Frame Center] {frame_center}, [QR Center] {qr_center}")
+
                 dx = qr_center[0] - frame_center[0]
                 dy = qr_center[1] - frame_center[1]
 
-                tolerance = 20
                 if abs(dx) < tolerance and abs(dy) < tolerance:
                     print("[Status] QR centered. Proceeding to grab.")
                     step_move("forward")
                     grip(True)
                     break
                 else:
-                    direction = []
-                    if dx < -tolerance:
-                        direction.append("left")
-                    elif dx > tolerance:
-                        direction.append("right")
-                    if dy < -tolerance:
-                        direction.append("up")
-                    elif dy > tolerance:
-                        direction.append("down")
+                    # Update the last known good pose
+                    last_known_pose = read_current_pose()
+                    missed_frames = 0  # Reset QR-miss counter
 
-                    for d in direction:
-                        step_move(d)
+                    # Prioritize axis with larger offset
+                    if abs(dx) > abs(dy):
+                        if dx < -tolerance:
+                            step_move("left")
+                        elif dx > tolerance:
+                            step_move("right")
+                    else:
+                        if dy < -tolerance:
+                            step_move("up")
+                        elif dy > tolerance:
+                            step_move("down")
             else:
                 print("[Status] Target not detected.")
+                missed_frames += 1
 
-            # Display
+                # If QR is lost for too long, go back to last known pose
+                if missed_frames >= 5 and last_known_pose:
+                    print("[Recovery] QR lost. Returning to last known pose.")
+                    move_servos(last_known_pose, duration=800)
+                    missed_frames = 0
+
+            # Visual display
             cv2.circle(frame, frame_center, 5, (255, 0, 0), -1)
             if qr_center:
                 cv2.circle(frame, qr_center, 5, (0, 255, 0), -1)
+
+            # NEW: Boundary box visualization (tolerance box)
+            cv2.line(frame, (frame_center[0] - tolerance, frame_center[1]),
+                     (frame_center[0] + tolerance, frame_center[1]), (255, 255, 255), 1)
+            cv2.line(frame, (frame_center[0], frame_center[1] - tolerance),
+                     (frame_center[0], frame_center[1] + tolerance), (255, 255, 255), 1)
+
             cv2.imshow("Visual Servoing", frame)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
