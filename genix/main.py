@@ -1,8 +1,9 @@
 import cv2
 from pyzbar.pyzbar import decode
-from genix.arm_control import move_servos, grip, reset_arm, step_move, move_and_pick_from_zone
+from genix.arm_control import move_servos, grip, reset_arm, move_and_pick_from_zone, rotate_to_location
 from genix.pose import read_current_pose
 import json
+import time
 
 def initialize_camera(camera_id=0):
     cap = cv2.VideoCapture(camera_id)
@@ -65,13 +66,42 @@ def get_zone(qr_center, frame_center, frame_size):
         return "center"
     return f"{vert}-{horiz}"
 
-def main(stop_flag=None):
+def main(product_id=None, stop_flag=None, send_status_update=None, location1=None, location2=None):
     print("[GenixCraft Bot] Visual Servoing QR Pickup")
-    target_id = input("Enter target object ID (e.g. 'Item123'): ").strip()
-    cap = initialize_camera()
 
+    if not product_id:
+        print("[ERROR] No product_id passed to main().")
+        return
+
+    # Determine pickup/drop locations
+    pickup_location = location1
+    drop_location = location2
+
+    if location1 and not location2:
+        if location1.lower() == "table a":
+            pickup_location = "table b"
+            drop_location = "table a"
+        elif location1.lower() == "table b":
+            pickup_location = "table a"
+            drop_location = "table b"
+
+    # Move arm to rest before anything
+    rest_position = [90, 90, 0, 10, 90, 50]
+    move_servos(rest_position, duration=1500)
+
+    # Rotate to pickup location before scanning
+    if pickup_location:
+        success = rotate_to_location(pickup_location)
+        if send_status_update:
+            msg = f"[Arm] Rotated to pickup from {pickup_location}" if success else f"[Error] Failed to rotate to {pickup_location}"
+            send_status_update(msg)
+        if not success:
+            return
+
+    cap = initialize_camera()
     last_known_pose = None
     missed_frames = 0
+    start_time = time.time()
 
     try:
         while True:
@@ -79,12 +109,19 @@ def main(stop_flag=None):
                 print("[STOP] Emergency stop triggered. Exiting main loop.")
                 break
 
+            if time.time() - start_time >= 20:
+                message = f"? Timeout: No Product found within 20 seconds for product_id {product_id}"
+                print("[Timeout]", message)
+                if send_status_update:
+                    send_status_update(message)
+                break
+
             ret, frame = cap.read()
             if not ret:
                 print("[Error] Camera frame failed.")
                 continue
 
-            qr_center, product_info = detect_target(frame, target_id)
+            qr_center, product_info = detect_target(frame, product_id)
             h, w = frame.shape[:2]
             frame_center = (w // 2, h // 2)
 
@@ -96,24 +133,37 @@ def main(stop_flag=None):
                 zone = get_zone(qr_center, frame_center, (w, h))
                 print(f"[Zone] Detected zone: {zone}")
 
+                message = f"[Found] {product_info['product_name']}, Moving!"
+                if send_status_update:
+                    send_status_update(message)
+
                 if stop_flag and stop_flag.is_set():
                     break
 
-                move_and_pick_from_zone(zone)
+                success = move_and_pick_from_zone(zone)
+
+                if success:
+                    message = f"[Success] {product_info['product_name']} moved successfully!"
+                    if send_status_update:
+                        send_status_update(message)
+                else:
+                    message = f"[Failure] Could not move {product_info['product_name']}."
+                    if send_status_update:
+                        send_status_update(message)
+
                 break
             else:
                 print("[Status] Target not detected.")
                 missed_frames += 1
 
                 if missed_frames >= 5 and last_known_pose:
-                    print(f"[Recovery] QR lost. Returning to last known pose: {last_known_pose}")
+                    print(f"[Recovery] Returning to last known pose: {last_known_pose}")
                     move_servos(last_known_pose, duration=800)
                     missed_frames = 0
 
             if stop_flag and stop_flag.is_set():
                 break
 
-            # Visuals
             cv2.circle(frame, frame_center, 5, (255, 0, 0), -1)
             if qr_center:
                 cv2.circle(frame, qr_center, 5, (0, 255, 0), -1)

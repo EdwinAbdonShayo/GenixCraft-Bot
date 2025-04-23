@@ -69,8 +69,23 @@ def run_command_sequence(command_list):
         if stop_flag.is_set():
             print("--> Sequence interrupted by stop command.")
             return
-        print(f"[Executing] --> {cmd}")
-        visual_pickup(stop_flag=stop_flag)
+        if isinstance (cmd, dict) and "product_id" in cmd:
+            product_id = cmd["product_id"]
+            location1 = cmd.get("location1")
+            location2 = cmd.get("location2")
+            send_status_update(f"[Executing] Looking for product with product_id: {product_id}")
+            print(f"[Executing] Looking for product with product_id: {product_id}")
+            visual_pickup(
+                product_id=product_id,
+                stop_flag=stop_flag,
+                send_status_update=send_status_update,
+                location1=location1,
+                location2=location2
+            )
+        else:
+            print(f"?? Invalid command format: {cmd}")
+            send_error(f"Invalid command in sequence: {cmd}")
+
     send_status_update("--> All commands completed.")
 
 # --- Connect and Loop ---

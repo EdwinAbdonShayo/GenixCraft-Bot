@@ -1,6 +1,8 @@
 from genix.pose import read_current_pose
 from Arm_Lib import Arm_Device
 import time
+import json
+import os
 
 Arm = Arm_Device()
 
@@ -17,8 +19,9 @@ def grip(enable):
     Arm.Arm_serial_servo_write(6, angle, 400)
     time.sleep(0.5)
 
-def move_and_pick(joint_angles):
+def move_and_pick(init_pose, joint_angles):
     print("[Action] Moving to object...")
+    move_servos(init_pose, duration=200)
     move_servos(joint_angles, duration=1000)
     grip(1)
     time.sleep(0.5)
@@ -39,30 +42,34 @@ def reset_arm():
     rest_position = [90, 90, 0, 10, 90, 50]
     move_servos(rest_position, duration=1000)
 
-def step_move(direction, delta=2):
-    pose = read_current_pose()
-    if not pose or len(pose) < 5:
-        print("[Error] Invalid pose data.")
-        return
+# Load angle mappings from JSON
+def load_location_map():
+    try:
+        with open(os.path.join(os.path.dirname(__file__), "locations.json"), "r") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[Error] Failed to load locations.json: {e}")
+        return {}
 
-    print(f"[Move] Direction: {direction}")
-    if direction == "left":
-        pose[0] += delta
-    elif direction == "right":
-        pose[0] -= delta
-    elif direction == "up":
-        pose[1] -= delta
-        pose[2] -= delta // 2
-    elif direction == "down":
-        pose[1] += delta
-        pose[2] += delta // 2
-    elif direction == "forward":
-        pose[3] += 10
-    elif direction == "back":
-        pose[3] -= 10
+angle_map = load_location_map()
 
-    pose = sanitize_pose(pose)
-    move_servos(pose, duration=600)
+
+def rotate_to_location(location):
+
+    angle = angle_map.get(location.lower())
+    if angle is None:
+        print(f"[Error] Unknown location '{location}'")
+        return False
+
+    try:
+        print(f"[Rotate] Moving base to {angle}� for {location}")
+        Arm.Arm_serial_servo_write(1, angle, 800)
+        time.sleep(1)
+        return True
+    except Exception as e:
+        print(f"[Error] Failed to rotate to location '{location}': {e}")
+        return False
+
 
 def sanitize_pose(pose):
     pose = [max(0, min(180, p)) for p in pose]
@@ -73,46 +80,45 @@ def sanitize_pose(pose):
 
 def move_and_pick_from_zone(zone):
     zone_offsets = {
-        # "top-left-left":     [-15, -5, -5, 0, -5],
-        # "top-left":          [-10, -5, -5, 0, 0],
-        # "top-right":         [10, -5, -5, 0, 0],
-        # "top-right-right":   [15, -5, -5, 0, 5],
-        # "bottom-left-left":  [-15, 10, 5, 0, -5],
-        # "bottom-left":       [-10, 10, 5, 0, 0],
-        # "bottom-right":      [10, 10, 5, 0, 0],
-        # "bottom-right-right":[15, 10, 5, 0, 5],
-        # "top-center":        [0, -8, -5, 0, 0],
-        # "bottom-center":     [0, 10, 5, 0, 0],
-        # "left-left":         [-15, 0, 0, 0, -5],
-        # "left":              [-10, 0, 0, 0, -3],
-        # "right":             [10, 0, 0, 0, 3],
-        # "right-right":       [15, 0, 0, 0, 5],
-        "center":               [0, 0, 0, 20, 0],
+        "center":               [0, -10, 0, 20, 0],
         "center-left":          [13, -15, 0, 30, 15, 0],
         "center-right":         [-7, -15, 0, 30, -10, 0],
+        "bottom-left":          [-10, 10, 5, 0, 0],         # not tested
+        "bottom-right":         [10, 10, 5, 0, 0],          # not tested
         "bottom-center":        [0, -15, 0, 15, 0, 0],
         "top-center":           [0, -15, 0, 35, 0, 0],
         "top-right":            [5, -15, 0, 35, -10, 0],
         "top-left":             [15, -15, 0, 35, 15, 0],
+
+        "before_pose":          [0, 30, 0, 40, 0, 0]
         
     }
 
     offsets = zone_offsets.get(zone)
     if offsets is None:
         print(f"[Error] Unknown zone: {zone}")
-        return
+        return False
 
     current_pose = read_current_pose()
     if len(current_pose) < 5:
         print("[Error] Couldn't read full pose.")
-        return
+        return False
 
     new_pose = [current_pose[i] + offsets[i] for i in range(5)]
     new_pose = sanitize_pose(new_pose)
+
+    before_offsets = zone_offsets.get("before_pose", [0, 0, 0, 0, 0, 0])
+    init_pose = [current_pose[i] + before_offsets[i] for i in range(5)]
+    init_pose = sanitize_pose(init_pose)
 
     print(f"[Zone] Detected: {zone}")
     print(f"[Pose] Before: {current_pose}")
     print(f"[Offsets] Applied: {offsets}")
     print(f"[Pose] After: {new_pose}")
 
-    move_and_pick(new_pose)
+    try:
+        move_and_pick(init_pose, new_pose)
+        return True
+    except Exception as e:
+        print(f"[Failure] Move and pick failed: {e}")
+        return False
