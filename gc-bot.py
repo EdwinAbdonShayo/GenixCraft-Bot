@@ -38,7 +38,7 @@ def disconnect():
 def on_robot_command(data):
     command = data.get("command", "").lower()
     payload = data.get("payload", [])  # Expected to be a JSON array
-    print(f"--> Received command: {command}, Payload: {payload}")
+    print(f"📡 Received command: {command}, Payload: {payload}")
 
     try:
         if command == "start":
@@ -50,13 +50,13 @@ def on_robot_command(data):
             thread.start()
 
         elif command == "stop":
-            print("--> Emergency stop triggered.")
+            print("🛑 Emergency stop triggered.")
             stop_flag.set()
-            send_status_update("--> Emergency stop activated.")
+            send_status_update("🚨 Emergency stop activated.")
         
         else:
             print(f"⚠️ Unknown command received: {command}")
-            send_error(f"Unknown command: {command}")
+            send_error(f"❓ Unknown command: {command}")
 
     except Exception as e:
         print(f"⚠️ Error handling command: {e}")
@@ -64,10 +64,10 @@ def on_robot_command(data):
 
 # --- Command Execution Logic ---
 def run_command_sequence(command_list):
-    send_status_update("✅ Executing start sequence.")
+    send_status_update("🚀 Executing start sequence.")
     for cmd in command_list:
         if stop_flag.is_set():
-            print("--> Sequence interrupted by stop command.")
+            print("⚠️ Sequence interrupted by stop command.")
             return
         if isinstance (cmd, dict) and "product_id" in cmd:
             product_id = cmd["product_id"]
@@ -83,23 +83,23 @@ def run_command_sequence(command_list):
                 location2=location2
             )
         else:
-            print(f"?? Invalid command format: {cmd}")
+            print(f"⚠️ Invalid command format: {cmd}")
             send_error(f"Invalid command in sequence: {cmd}")
 
-    send_status_update("--> All commands completed.")
+    send_status_update("✅ All commands completed.")
 
 # --- Connect and Loop ---
 try:
     sio.connect("http://192.168.177.74:5000")
 except socketio.exceptions.ConnectionError as e:
-    print(f"?? Connection failed: {e}")
+    print(f"🚫 Connection failed: {e}")
     sys.exit(1)
 
 try:
     while True:
         time.sleep(1)
 except KeyboardInterrupt:
-    print("\n--> Manual shutdown.")
+    print("\n👋 Manual shutdown.")
     send_status_update("Client manually shut down.")
     if sio.connected:
         sio.disconnect()

@@ -27,12 +27,24 @@ def move_and_pick(init_pose, joint_angles):
     time.sleep(0.5)
 
     print("[Action] Lifting object slightly...")
-    joint_angles[2] = max(0, joint_angles[2] - 10)
-    move_servos(joint_angles, duration=800)
+    # joint_angles[2] = max(0, joint_angles[2] - 10)
+    # move_servos(joint_angles, duration=800)
 
 def place_object():
     print("[Action] Moving to drop zone...")
-    drop_position = [90, 60, 50, 50, 90]
+
+    current_pose = read_current_pose()
+    if len(current_pose) < 5:
+        print("[Error] Cannot read current pose for placement.")
+        return
+
+    # Keep servo 1 (base) as-is
+    drop_position = current_pose[:]
+    drop_position[1] = 60   # Shoulder
+    drop_position[2] = 50   # Elbow
+    drop_position[3] = 50   # Wrist
+    drop_position[4] = 90   # Rotation
+
     move_servos(drop_position, duration=1000)
     grip(0)
     time.sleep(0.5)
@@ -78,7 +90,8 @@ def sanitize_pose(pose):
         pose[2] = 50
     return pose
 
-def move_and_pick_from_zone(zone):
+
+def move_and_pick_from_zone(zone, drop_location=None):
     zone_offsets = {
         "center":               [0, -10, 0, 20, 0],
         "center-left":          [13, -15, 0, 30, 15, 0],
@@ -104,6 +117,7 @@ def move_and_pick_from_zone(zone):
         print("[Error] Couldn't read full pose.")
         return False
 
+    # Generate pickup pose
     new_pose = [current_pose[i] + offsets[i] for i in range(5)]
     new_pose = sanitize_pose(new_pose)
 
@@ -117,8 +131,21 @@ def move_and_pick_from_zone(zone):
     print(f"[Pose] After: {new_pose}")
 
     try:
+        # Move and pick
         move_and_pick(init_pose, new_pose)
+
+        # Rotate to drop-off if specified
+        if drop_location:
+            if rotate_to_location(drop_location):
+                print(f"[Drop] Rotated to {drop_location} for placement.")
+            else:
+                print(f"[Error] Failed to rotate to drop-off location '{drop_location}'")
+                return False
+
+        # Place object
+        place_object()
         return True
+
     except Exception as e:
         print(f"[Failure] Move and pick failed: {e}")
         return False

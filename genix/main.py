@@ -110,7 +110,7 @@ def main(product_id=None, stop_flag=None, send_status_update=None, location1=Non
                 break
 
             if time.time() - start_time >= 20:
-                message = f"? Timeout: No Product found within 20 seconds for product_id {product_id}"
+                message = f"❌ Timeout: No Product found within 20 seconds for product_id {product_id}"
                 print("[Timeout]", message)
                 if send_status_update:
                     send_status_update(message)
@@ -140,7 +140,7 @@ def main(product_id=None, stop_flag=None, send_status_update=None, location1=Non
                 if stop_flag and stop_flag.is_set():
                     break
 
-                success = move_and_pick_from_zone(zone)
+                success = move_and_pick_from_zone(zone, drop_location=drop_location)
 
                 if success:
                     message = f"[Success] {product_info['product_name']} moved successfully!"
