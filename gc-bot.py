@@ -1,30 +1,33 @@
 import socketio
-
 import time
 import sys
+import os
+import threading
 
-# Set up SocketIO client
+# --- Add child folder to path for imports ---
+# sys.path.append(os.path.join(os.path.dirname(__file__), 'child'))
+
+from genix.main import main as visual_pickup  # Visual servoing logic
+
+# --- SocketIO Client Setup ---
 sio = socketio.Client()
 
-# --- Utility Functions ---
+# --- Global Stop Flag ---
+stop_flag = threading.Event()
 
+# --- Utility Functions ---
 def send_status_update(message):
-    """Send a status update to the server, if connected."""
     if sio.connected:
         sio.emit("status_update", {"message": message})
 
-
 def send_error(message):
-    """Send an error report to the server, if connected."""
     if sio.connected:
         sio.emit("error_report", {"error": message})
 
 # --- SocketIO Events ---
-
 @sio.event
 def connect():
     print("✅ Connected to control system.")
-    time.sleep(2)
     send_status_update("GenixCraft is connected and ready.")
 
 @sio.event
@@ -33,38 +36,56 @@ def disconnect():
 
 @sio.on("robot_command")
 def on_robot_command(data):
-    command = data.get("command", "")
-    print(f"📡 Received command: {command}")
+    command = data.get("command", "").lower()
+    payload = data.get("payload", [])  # Expected to be a JSON array
+    print(f"--> Received command: {command}, Payload: {payload}")
 
     try:
-        # TODO: Add real command handling logic here
-        # For now, we simulate execution:
-        print(f"⚙️ Executing command: {command}")
+        if command == "start":
+            if not isinstance(payload, list):
+                raise ValueError("Payload for 'start' must be a list of commands.")
+            
+            stop_flag.clear()
+            thread = threading.Thread(target=run_command_sequence, args=(payload,))
+            thread.start()
+
+        elif command == "stop":
+            print("--> Emergency stop triggered.")
+            stop_flag.set()
+            send_status_update("--> Emergency stop activated.")
         
-        # After execution, notify the server
-        send_status_update(f"✅ Command '{command}' executed successfully.")
+        else:
+            print(f"⚠️ Unknown command received: {command}")
+            send_error(f"Unknown command: {command}")
 
     except Exception as e:
-        print(f"⚠️ Error executing command: {e}")
-        send_error(f"Error executing command '{command}': {str(e)}")
+        print(f"⚠️ Error handling command: {e}")
+        send_error(f"Error handling command '{command}': {str(e)}")
 
-# --- Connect to Server ---
+# --- Command Execution Logic ---
+def run_command_sequence(command_list):
+    send_status_update("✅ Executing start sequence.")
+    for cmd in command_list:
+        if stop_flag.is_set():
+            print("--> Sequence interrupted by stop command.")
+            return
+        print(f"[Executing] --> {cmd}")
+        visual_pickup(stop_flag=stop_flag)
+    send_status_update("--> All commands completed.")
 
+# --- Connect and Loop ---
 try:
-    sio.connect("http://192.168.97.74:5000")
-    # sio.wait_background()  # Run in background to keep the main thread alive
+    sio.connect("http://192.168.177.74:5000")
 except socketio.exceptions.ConnectionError as e:
-    print(f"🚫 Connection failed: {e}")
+    print(f"?? Connection failed: {e}")
     sys.exit(1)
 
-# --- Keep the client running ---
-# sio.wait()
 try:
     while True:
-        time.sleep(1)  # Keeps the main thread alive
+        time.sleep(1)
 except KeyboardInterrupt:
-    print("\n👋 Shutting down GenixCraft client...")
-    send_status_update("GenixCraft client manually shut down.")  # Now safe
+    print("\n--> Manual shutdown.")
+    send_status_update("Client manually shut down.")
     if sio.connected:
         sio.disconnect()
     sys.exit(0)

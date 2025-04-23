@@ -1,7 +1,7 @@
 import cv2
 from pyzbar.pyzbar import decode
-from arm_control import move_servos, grip, reset_arm, step_move, move_and_pick_from_zone
-from pose import read_current_pose
+from genix.arm_control import move_servos, grip, reset_arm, step_move, move_and_pick_from_zone
+from genix.pose import read_current_pose
 import json
 
 def initialize_camera(camera_id=0):
@@ -65,7 +65,7 @@ def get_zone(qr_center, frame_center, frame_size):
         return "center"
     return f"{vert}-{horiz}"
 
-def main():
+def main(stop_flag=None):
     print("[GenixCraft Bot] Visual Servoing QR Pickup")
     target_id = input("Enter target object ID (e.g. 'Item123'): ").strip()
     cap = initialize_camera()
@@ -75,6 +75,10 @@ def main():
 
     try:
         while True:
+            if stop_flag and stop_flag.is_set():
+                print("[STOP] Emergency stop triggered. Exiting main loop.")
+                break
+
             ret, frame = cap.read()
             if not ret:
                 print("[Error] Camera frame failed.")
@@ -91,7 +95,11 @@ def main():
 
                 zone = get_zone(qr_center, frame_center, (w, h))
                 print(f"[Zone] Detected zone: {zone}")
-                # move_and_pick_from_zone(zone)
+
+                if stop_flag and stop_flag.is_set():
+                    break
+
+                move_and_pick_from_zone(zone)
                 break
             else:
                 print("[Status] Target not detected.")
@@ -101,6 +109,9 @@ def main():
                     print(f"[Recovery] QR lost. Returning to last known pose: {last_known_pose}")
                     move_servos(last_known_pose, duration=800)
                     missed_frames = 0
+
+            if stop_flag and stop_flag.is_set():
+                break
 
             # Visuals
             cv2.circle(frame, frame_center, 5, (255, 0, 0), -1)
@@ -118,6 +129,3 @@ def main():
         cv2.destroyAllWindows()
         print("[Action] Returning to rest position.")
         reset_arm()
-
-if __name__ == "__main__":
-    main()
