@@ -27,8 +27,8 @@ def move_and_pick(init_pose, joint_angles):
     time.sleep(0.5)
 
     print("[Action] Lifting object slightly...")
-    # joint_angles[2] = max(0, joint_angles[2] - 10)
-    # move_servos(joint_angles, duration=800)
+    joint_angles[2] = min(180, joint_angles[2] + 40)
+    move_servos(joint_angles, duration=800)
 
 def place_object():
     print("[Action] Moving to drop zone...")
@@ -40,14 +40,16 @@ def place_object():
 
     # Keep servo 1 (base) as-is
     drop_position = current_pose[:]
-    drop_position[1] = 60   # Shoulder
-    drop_position[2] = 50   # Elbow
-    drop_position[3] = 50   # Wrist
+    drop_position[1] = 70   # Shoulder
+    drop_position[2] = 20   # Elbow
+    drop_position[3] = 10   # Wrist
     drop_position[4] = 90   # Rotation
 
     move_servos(drop_position, duration=1000)
     grip(0)
     time.sleep(0.5)
+    drop_position[2] = min(180, drop_position[2] + 40)
+    move_servos(drop_position, duration=800)
 
 def reset_arm():
     print("[Action] Returning to rest position.")
